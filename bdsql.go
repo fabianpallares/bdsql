@@ -1,44 +1,56 @@
 /*
-Package bdsql gestiona de manera simple, rápida y eficiente; todas las acciones
-que se realizan con un motor de base de datos SQL.
-
-Los motores de bases de datos que pueden ser utilizados son:
-	mysql
-	mariadb
-	postgres
-
-El paquete ofrece la misma funcionalidad y uso, indistintamente
-al motor de base de datos que se haya conectado.*/
+Package bdsql gestiona de manera simple, rápida y eficiente; las sentencias
+que se realizan con el motor de base de datos Mysql/MariaDB.*/
 package bdsql
 
-// Almacenador representa a la base de datos.
-// Se encarga de ejecutar sentencias SQL en la base de datos.
-type Almacenador interface {
-	InsertarEn(tabla string) *insertarEn
-	// ModificarEn(tabla string) *modificarEn
-	// EliminarEn(tabla string) *eliminarEn
-	// SeleccionarDe(tabla string) *seleccionarDe
-	// SeleccionarSql(sentencia string, valores ...interface{}) *seleccionarSql
-	// TxIniciar() (transaccionador, error)
+import (
+	"database/sql"
+	"sync"
+)
+
+// Conectar crea una conección con el motor de base de datos Mysql/MariaDB.
+func Conectar(dsn string, maxConAbiertas, maxConOciosas int) (*baseDeDatos, error) {
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, errorNuevo().asignarOrigen(err).asignarMotivoConexionAbrir()
+	}
+	err = db.Ping()
+	if err != nil {
+		return nil, errorNuevo().asignarOrigen(err).asignarMotivoConexionAbrir()
+	}
+	db.SetMaxOpenConns(maxConAbiertas)
+	db.SetMaxIdleConns(maxConOciosas)
+
+	var bd = &baseDeDatos{db: db}
+	bd.setencias = make(map[string]string)
+
+	return bd, nil
 }
 
-// Transaccionador representa a una transacción de la base de datos.
-// Se encarga de ejecutar sentencias SQL dentro de una transacción.
-type Transaccionador interface {
-	InsertarEn(tabla string) *insertarEn
-	// ModificarEn(tabla string) *modificarEn
-	// EliminarEn(tabla string) *eliminarEn
-	// SeleccionarDe(tabla string) *seleccionarDe
-	// SeleccionarSql(sentencia string, valores ...interface{}) *seleccionarSql
-	// TxConfirmar() error
-	// TxRevertir() error
-	// TxFinalizar(err error) error
+type baseDeDatos struct {
+	db   *sql.DB    // manejador de la base de datos
+	exmu sync.Mutex // manejador de exclusión mutua
+
+	// sentencias almacena sentencias SQL para que no vuelvan a
+	// ser generadas por cada llamada
+	setencias map[string]string
 }
 
-// ejecutorDeInsercion establece la funcionalidad de la sentencia
-// 'insert' de SQL.
-type ejecutorDeInsercion interface {
-	// crearSentenciaPreparada() (*sentenciaPreparadaInsertar, error)
-	sql() string
-	ejecutar() error
+// InsertarEn representa a la sentencia 'insert' de sql.
+func (bd *baseDeDatos) InsertarEn(tabla string) *insertarEn {
+	return &insertarEn{bd: bd, tabla: tabla}
+}
+
+func (bd *baseDeDatos) obtenerSentenciaSQL(nombre string) (string, bool) {
+	bd.exmu.Lock()
+	s, ok := bd.setencias[nombre]
+	bd.exmu.Unlock()
+
+	return s, ok
+}
+
+func (bd *baseDeDatos) guardarSentenciaSQL(nombre, sentenciaSQL string) {
+	bd.exmu.Lock()
+	bd.setencias[nombre] = sentenciaSQL
+	bd.exmu.Unlock()
 }

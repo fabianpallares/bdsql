@@ -3,193 +3,67 @@ package bdsql
 import (
 	"fmt"
 	"strings"
+
+	"github.com/go-sql-driver/mysql"
 )
 
-// motivos almacena los distintos motivos del paquete.
-// Determina CUÁL es el motivo del error.
-type motivos struct {
-	esConexionAbrir  bool // No es posible conectase con el motor de la base de datos.
-	esConexionCerrar bool // No es posible cerrar la conexión con la base de datos.
-
-	// Genéricos de validación del paquete.
-	esNombreDeTablaVacia    bool // El nombre de la tabla se encuentra vacía.
-	esNombresDeCamposVacios bool // Los nombres de los campos se encuentran vacíos.
-	esValoresVacios         bool // No se han recibido valores para poder ejecutar la sentencia.
-	esCamposValores         bool // La cantidad de campos no coincide con la cantidad de valores recibidos.
-
-	// No atrapado.
-	esEjecucionFallida bool // No posible ejecutar la sentencia, debido a que se ha producido un error inesperado en la base de datos y no fue atrapado.
-
-	// Causados por la base de datos, pero han sido atrapados.
-	esTablaInexistente              bool // El nombre de la tabla en la base de datos es inexistente.
-	esCampoDeTablaInexistente       bool // No es posible ejecutar la sentencia porque el nombre de campo es inexistente.
-	esEntradaDuplicada              bool // La tabla contiene un un campo con clave única y el valor recibido ya existe.
-	esTipoDeCampoIncorrecto         bool // Se intenta guardar un valor en un campo de una tabla donde el tipo de valor es incorrecto.
-	esCampoFueraDeRango             bool // No es posible ejecutar la sentencia porque hay al menos un valor que se desea guardar que supera el límite permitido po el campo
-	esObtencionDeRegistrosAfectados bool // Error al obtener la cantidad de registros afectados.
-	esNingunRegistroAfectado        bool // Elemento inexistente o existen otros elementos con los mismos valores o no se ha cambiado ningún valor del elemento.
-
-	// Insertar.
-	esObtencionDeID bool // No es posible obtener el id insertado.
-
-	// Seleccionar
-	esSeleccionarPunteroDeSlice        bool // El objeto recibido no es un puntero de slice de estructura.
-	esSeleccionarCamposSinRelacion     bool // No es posible ejecutar la sentencia porque los campos de la estructura del objeto recibido no tienen asignados la relación con los campos de la tabla de la base de datos.
-	esSeleccionarContieneEstructura    bool // No es posible recibir un objeto que contenga dentro otra estructura.
-	esSeleccionarTipoDeCampoIncorrecto bool // No es posible ejecutar la sentencia porque existe al menos un campo de la estructura que contiene un tipo erroneo (no se permiten punteros).
-	esSeleccionarCamposFaltantes       bool // Los campos obtenidos de la consulta, no existen en su totalidad en la estructura.
-	esSeleccionarLecturaDeCampos       bool // No es posible leer los campos de la consulta.
-	esSeleccionarAsignacionDeCampos    bool // No es posible asignar los campos de la consulta de la base de datos a los campos de la estructura.
-
-	// Transacción
-	esTxIniciar   bool // Error al intentar iniciar una transacción.
-	esTxConfirmar bool // Error al intentar confirmar la transacción.
-	esTxRevertir  bool // Error al intentar revertir la transacción.
+// EsError devuelve el error del paquete y un valor lógico que confirma el tipo.
+func EsError(err error) (*errorPaquete, bool) {
+	ep, ok := err.(*errorPaquete)
+	return ep, ok
 }
 
-// errorPaquete es el error del paquete.
 type errorPaquete struct {
-	origen   error    // Origen (causa) del error (error original).
-	mensajes []string // Mensajes de error.
-	motivos           // Los diversos motivos (causas) del origen del error.
+	// origen (causa) del error (error original de la base de datos)
+	origen error
+
+	// mensajes de error
+	mensajes []string
+
+	// los diversos motivos (causas) del origen del error
+	errorMotivos struct {
+		// apertura y cierre de conexión
+		esConexionAbrir  bool // no es posible conectase con el motor de la base de datos
+		esConexionCerrar bool // no es posible cerrar la conexión con la base de datos
+
+		// genéricos de validación del paquete
+		esNombreDeTablaVacia             bool // el nombre de la tabla se encuentra vacía
+		esNombresDeCamposVacios          bool // los nombres de los campos se encuentran vacíos
+		esValoresVacios                  bool // no se han recibido valores para poder ejecutar la sentencia
+		esCamposValoresDiferenteCantidad bool // la cantidad de campos no coincide con la cantidad de valores recibidos
+
+		// no atrapado
+		esErrorNoAtrapado bool // No posible ejecutar la sentencia, debido a que se ha producido un error inesperado en la base de datos y el error no fue atrapado
+
+		// causados por la base de datos, pero han sido atrapados
+		esTablaInexistente              bool // el nombre de la tabla en la base de datos es inexistente
+		esCampoDeTablaInexistente       bool // no es posible ejecutar la sentencia porque el nombre de campo es inexistente
+		esEntradaDuplicada              bool // la tabla contiene un un campo con clave única y el valor recibido ya existe
+		esTipoDeCampoIncorrecto         bool // se intenta guardar un valor en un campo de una tabla donde el tipo de valor es incorrecto
+		esCampoFueraDeRango             bool // no es posible ejecutar la sentencia porque hay al menos un valor que se desea guardar que supera el límite permitido po el campo
+		esObtencionDeRegistrosAfectados bool // error al obtener la cantidad de registros afectados
+		esNingunRegistroAfectado        bool // elemento inexistente o existen otros elementos con los mismos valores o no se ha cambiado ningún valor del elemento
+
+		// insertar
+		esObtencionDeID bool // No es posible obtener el id insertado
+
+		// seleccionar
+		esSeleccionarPunteroDeSlice        bool // El objeto recibido no es un puntero de slice de estructura
+		esSeleccionarCamposSinRelacion     bool // No es posible ejecutar la sentencia porque los campos de la estructura del objeto recibido no tienen asignados la relación con los campos de la tabla de la base de datos
+		esSeleccionarContieneEstructura    bool // No es posible recibir un objeto que contenga dentro otra estructura
+		esSeleccionarTipoDeCampoIncorrecto bool // No es posible ejecutar la sentencia porque existe al menos un campo de la estructura que contiene un tipo erroneo (no se permiten punteros)
+		esSeleccionarCamposFaltantes       bool // Los campos obtenidos de la consulta, no existen en su totalidad en la estructura
+		esSeleccionarLecturaDeCampos       bool // No es posible leer los campos de la consulta
+		esSeleccionarAsignacionDeCampos    bool // No es posible asignar los campos de la consulta de la base de datos a los campos de la estructura
+
+		// transacción
+		esTxIniciar   bool // error al intentar iniciar una transacción
+		esTxConfirmar bool // error al intentar confirmar la transacción
+		esTxRevertir  bool // error al intentar revertir la transacción
+	}
 }
 
-// asignarOrigen asigna el origen del error (envuelve el error) original.
-func (err *errorPaquete) asignarOrigen(origen error) *errorPaquete {
-	err.origen = origen
-	return err
-}
-
-// -----------------------------------------------------------------------------
-// Métodos internos de cambios de motivos de error (comportamiento).
-
-func (err *errorPaquete) cambiarMotivo(mensaje string, motivo *bool) *errorPaquete {
-	err.mensajes = append(err.mensajes, mensaje)
-	*motivo = true
-
-	return err
-}
-
-func (err *errorPaquete) motivoConexion() *errorPaquete {
-	s := "Error al conectarse con la base de datos"
-	return err.cambiarMotivo(s, &err.motivos.esConexionAbrir)
-}
-func (err *errorPaquete) motivoCerrar() *errorPaquete {
-	s := "Error al cerrar la conexión con la base de datos"
-	return err.cambiarMotivo(s, &err.motivos.esConexionCerrar)
-}
-
-// Validación de sentencias
-
-func (err *errorPaquete) motivoNombreDeTablaVacia() *errorPaquete {
-	s := "No es posible generar la sentencia porque el nombre de la tabla se encuentra vacía"
-	return err.cambiarMotivo(s, &err.motivos.esNombreDeTablaVacia)
-}
-func (err *errorPaquete) motivoNombresDeCamposVacios() *errorPaquete {
-	s := "No es posible generar la sentencia porque la lista de nombres de campos se encuentra vacía"
-	return err.cambiarMotivo(s, &err.motivos.esNombresDeCamposVacios)
-}
-func (err *errorPaquete) motivoValoresVacios() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque la lista de valores de los campos se encuentra vacía"
-	return err.cambiarMotivo(s, &err.motivos.esValoresVacios)
-}
-func (err *errorPaquete) motivoCamposValores() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque la cantidad de nombres de campos no coincide con la cantidad de valores recibidos"
-	return err.cambiarMotivo(s, &err.motivos.esCamposValores)
-}
-
-// Error inesperado de la base de datos al ejecutar la sentencia.
-func (err *errorPaquete) motivoEjecucionFallida() *errorPaquete {
-	s := "Error al ejecutar la sentencia, se produjo un error inesperado"
-	return err.cambiarMotivo(s, &err.motivos.esEjecucionFallida)
-}
-
-// Errores generados por la base de datos que han sido atrapados
-
-func (err *errorPaquete) motivoTablaInexistente() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque el nombre de la tabla no existe en la base de datos"
-	return err.cambiarMotivo(s, &err.motivos.esTablaInexistente)
-}
-func (err *errorPaquete) motivoCampoInexistente() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque hay al menos un nombre de campo que no existe en la tabla"
-	return err.cambiarMotivo(s, &err.motivos.esCampoDeTablaInexistente)
-}
-func (err *errorPaquete) motivoEntradaDuplicada() *errorPaquete {
-	s := "No es posible guardar los datos porque ya existe un campo que contiene el mismo valor que se ha recibido (entrada duplicada)"
-	return err.cambiarMotivo(s, &err.motivos.esEntradaDuplicada)
-}
-func (err *errorPaquete) motivoTipoDeCampoIncorrecto() *errorPaquete {
-	s := "No es posible guardar los datos porque existe al menos un campo de la tabla que está recibiendo un tipo de valor incorrecto"
-	return err.cambiarMotivo(s, &err.motivos.esTipoDeCampoIncorrecto)
-}
-func (err *errorPaquete) motivoCampoFueraDeRango() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque existe al menos un valor recibido que supera el límite permitido por el campo de la tabla"
-	return err.cambiarMotivo(s, &err.motivos.esCampoFueraDeRango)
-}
-func (err *errorPaquete) motivoObtencionDeRegistrosAfectados() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque se produjo un error al obtener la cantidad de registros afectados"
-	return err.cambiarMotivo(s, &err.motivos.esObtencionDeRegistrosAfectados)
-}
-func (err *errorPaquete) motivoNingunRegistroAfectado() *errorPaquete {
-	s := "La sentencia se ejecutó satisfactoriamente pero ningún registro de la tabla fue afectado. Los posibles motivos son: Elemento inexistente o no se ha cambiado ningún valor del registro"
-	return err.cambiarMotivo(s, &err.motivos.esNingunRegistroAfectado)
-}
-
-func (err *errorPaquete) motivoObtencionDeID() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque se produjo un error al obtener el id insertado"
-	return err.cambiarMotivo(s, &err.motivos.esObtencionDeID)
-}
-
-// Seleccionar
-
-func (err *errorPaquete) motivoSeleccionarPunteroDeSlice() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque el objeto recibido no es un puntero de slice de estructura"
-	return err.cambiarMotivo(s, &err.motivos.esSeleccionarPunteroDeSlice)
-}
-func (err *errorPaquete) motivoSeleccionarCamposSinRelacion() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque los campos de la estructura del objeto recibido no tienen asignados la relación de nombres con los campos de la tabla de la base de datos"
-	return err.cambiarMotivo(s, &err.motivos.esSeleccionarCamposSinRelacion)
-}
-func (err *errorPaquete) motivoSeleccionarContieneEstrucutura() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque el objeto recibido contiene al menos una estructura"
-	return err.cambiarMotivo(s, &err.motivos.esSeleccionarContieneEstructura)
-}
-func (err *errorPaquete) motivoSeleccionarTipoDeCampoIncorrecto() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque existe al menos un campo de la estructura que contiene un tipo erroneo (no se permiten punteros)"
-	return err.cambiarMotivo(s, &err.motivos.esSeleccionarTipoDeCampoIncorrecto)
-}
-func (err *errorPaquete) motivoSeleccionarCamposFaltantes(camposFaltantes string) *errorPaquete {
-	s := fmt.Sprintf("No es posible ejecutar la sentencia porque los campos obtenidos de la consulta no existen en su totalidad dentro de la estructura. Los campos faltantes son: %v", camposFaltantes)
-	return err.cambiarMotivo(s, &err.motivos.esSeleccionarCamposFaltantes)
-}
-func (err *errorPaquete) motivoSeleccionarLecturaDeCampos() *errorPaquete {
-	s := "No es posible ejecutar la sentencia porque se produjo un error al leer los campos de la consulta"
-	return err.cambiarMotivo(s, &err.motivos.esSeleccionarLecturaDeCampos)
-}
-func (err *errorPaquete) motivoSeleccionarAsignacionDeCampos(mensaje string) *errorPaquete {
-	s := fmt.Sprintf("No es posible ejecutar la sentencia porque se produjo un error al asignar los campos de la consulta a los campos de la estructura. %v", mensaje)
-	return err.cambiarMotivo(s, &err.motivos.esSeleccionarAsignacionDeCampos)
-}
-
-// Transacciones
-
-func (err *errorPaquete) motivoTxIniciar() *errorPaquete {
-	s := "Error al intentar iniciar una transacción"
-	return err.cambiarMotivo(s, &err.motivos.esTxIniciar)
-}
-func (err *errorPaquete) motivoTxConfirmar() *errorPaquete {
-	s := "Error al intentar confirmar la transacción"
-	return err.cambiarMotivo(s, &err.motivos.esTxConfirmar)
-}
-func (err *errorPaquete) motivoTxRevertir() *errorPaquete {
-	s := "Error al intentar revertir la transacción"
-	return err.cambiarMotivo(s, &err.motivos.esTxRevertir)
-}
-
-// -----------------------------------------------------------------------------
-// Métodos públicos.
-
-// Error implementa la interface error.
+// Error devuelve el mensaje de error.
 func (err *errorPaquete) Error() string {
 	return strings.Join(err.mensajes, ". ")
 }
@@ -199,75 +73,231 @@ func (err *errorPaquete) ObtenerOrigen() error {
 	return err.origen
 }
 
-// Métodos públicos del error (motivos/comportamientos/causas de error).
+func (err *errorPaquete) EsConexionAbrir() bool    { return err.errorMotivos.esConexionAbrir }
+func (err *errorPaquete) EsConexionCerrar() bool   { return err.errorMotivos.esConexionCerrar }
+func (err *errorPaquete) EsErrorNoAtrapado() bool  { return err.errorMotivos.esErrorNoAtrapado }
+func (err *errorPaquete) EsEntradaDuplicada() bool { return err.errorMotivos.esEntradaDuplicada }
 
-func (err *errorPaquete) EsConexionAbrir() bool    { return err.motivos.esConexionAbrir }
-func (err *errorPaquete) EsConexionCerrar() bool   { return err.motivos.esConexionCerrar }
-func (err *errorPaquete) EsEjecucionFallida() bool { return err.motivos.esEjecucionFallida }
-func (err *errorPaquete) EsEntradaDuplicada() bool { return err.motivos.esEntradaDuplicada }
-
-func (err *errorPaquete) EsNombreDeTablaVacia() bool             { return err.motivos.esNombreDeTablaVacia }
-func (err *errorPaquete) EsNombresDeCamposVacios() bool          { return err.motivos.esNombresDeCamposVacios }
-func (err *errorPaquete) EsValoresVacios() bool                  { return err.motivos.esValoresVacios }
-func (err *errorPaquete) EsCamposValoresDiferenteCantidad() bool { return err.motivos.esCamposValores }
-func (err *errorPaquete) EsTablaInexistente() bool               { return err.motivos.esTablaInexistente }
+func (err *errorPaquete) EsNombreDeTablaVacia() bool { return err.errorMotivos.esNombreDeTablaVacia }
+func (err *errorPaquete) EsNombresDeCamposVacios() bool {
+	return err.errorMotivos.esNombresDeCamposVacios
+}
+func (err *errorPaquete) EsValoresVacios() bool { return err.errorMotivos.esValoresVacios }
+func (err *errorPaquete) EsCamposValoresDiferenteCantidad() bool {
+	return err.errorMotivos.esCamposValoresDiferenteCantidad
+}
+func (err *errorPaquete) EsTablaInexistente() bool { return err.errorMotivos.esTablaInexistente }
 func (err *errorPaquete) EsCampoDeTablaInexistente() bool {
-	return err.motivos.esCampoDeTablaInexistente
+	return err.errorMotivos.esCampoDeTablaInexistente
 }
-func (err *errorPaquete) EsTipoDeCampoIncorrecto() bool { return err.motivos.esTipoDeCampoIncorrecto }
+func (err *errorPaquete) EsTipoDeCampoIncorrecto() bool {
+	return err.errorMotivos.esTipoDeCampoIncorrecto
+}
 func (err *errorPaquete) EsObtencionDeRegistrosAfectados() bool {
-	return err.motivos.esObtencionDeRegistrosAfectados
+	return err.errorMotivos.esObtencionDeRegistrosAfectados
 }
-func (err *errorPaquete) EsNingunRegistroAfectado() bool { return err.motivos.esNingunRegistroAfectado }
-func (err *errorPaquete) EsCampoFueraDeRango() bool      { return err.motivos.esCampoFueraDeRango }
-func (err *errorPaquete) EsObtencionDeID() bool          { return err.motivos.esObtencionDeID }
-
-// Seleccionar -----------------------------------------------------------------
-
+func (err *errorPaquete) EsNingunRegistroAfectado() bool {
+	return err.errorMotivos.esNingunRegistroAfectado
+}
+func (err *errorPaquete) EsCampoFueraDeRango() bool { return err.errorMotivos.esCampoFueraDeRango }
+func (err *errorPaquete) EsObtencionDeID() bool     { return err.errorMotivos.esObtencionDeID }
 func (err *errorPaquete) EsSeleccionarPunteroDeSlice() bool {
-	return err.motivos.esSeleccionarPunteroDeSlice
+	return err.errorMotivos.esSeleccionarPunteroDeSlice
 }
 func (err *errorPaquete) EsSeleccionarCamposSinRelacion() bool {
-	return err.motivos.esSeleccionarCamposSinRelacion
+	return err.errorMotivos.esSeleccionarCamposSinRelacion
 }
 func (err *errorPaquete) EsSeleccionarContieneEstructura() bool {
-	return err.motivos.esSeleccionarContieneEstructura
+	return err.errorMotivos.esSeleccionarContieneEstructura
 }
 func (err *errorPaquete) EsSeleccionarTipoDeCampoIncorrecto() bool {
-	return err.motivos.esSeleccionarTipoDeCampoIncorrecto
+	return err.errorMotivos.esSeleccionarTipoDeCampoIncorrecto
 }
 func (err *errorPaquete) EsSeleccionarCamposFaltantes() bool {
-	return err.motivos.esSeleccionarCamposFaltantes
+	return err.errorMotivos.esSeleccionarCamposFaltantes
 }
 func (err *errorPaquete) EsSeleccionarLecturaDeCampos() bool {
-	return err.motivos.esSeleccionarLecturaDeCampos
+	return err.errorMotivos.esSeleccionarLecturaDeCampos
 }
 func (err *errorPaquete) EsSeleccionarAsignacionDeCampos() bool {
-	return err.motivos.esSeleccionarAsignacionDeCampos
+	return err.errorMotivos.esSeleccionarAsignacionDeCampos
 }
-
-// Transacciones ---------------------------------------------------------------
-
 func (err *errorPaquete) EsTxIniciar() bool {
-	return err.motivos.esTxIniciar
+	return err.errorMotivos.esTxIniciar
 }
 func (err *errorPaquete) EsTxConfirmar() bool {
-	return err.motivos.esTxConfirmar
+	return err.errorMotivos.esTxConfirmar
 }
 func (err *errorPaquete) EsTxRevertir() bool {
-	return err.motivos.esTxRevertir
+	return err.errorMotivos.esTxRevertir
 }
 
 // -----------------------------------------------------------------------------
 
-// errorNuevo crea un nuevo error del paquete.
+func (err *errorPaquete) asignarOrigen(origen error) *errorPaquete {
+	err.origen = origen
+	return err
+}
+
+func (err *errorPaquete) asignarMotivoConexionAbrir() *errorPaquete {
+	err.mensajes = append(err.mensajes, "Error al conectarse con la base de datos")
+	err.errorMotivos.esConexionAbrir = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoConexionCerrar() *errorPaquete {
+	err.mensajes = append(err.mensajes, "Error al cerrar la conexión con la base de datos")
+	err.errorMotivos.esConexionCerrar = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoNombreDeTablaVacia() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible generar la sentencia porque el nombre de la tabla se encuentra vacía")
+	err.errorMotivos.esNombreDeTablaVacia = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoNombresDeCamposVacios() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible generar la sentencia porque la lista de nombres de campos se encuentra vacía")
+	err.errorMotivos.esNombresDeCamposVacios = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoValoresVacios() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia porque la lista de valores de los campos se encuentra vacía")
+	err.errorMotivos.esValoresVacios = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoCamposValores() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. La cantidad de nombres de campos no coincide con la cantidad de valores recibidos")
+	err.errorMotivos.esCamposValoresDiferenteCantidad = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoErrorNoAtrapado() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. Se produjo un error inesperado")
+	err.errorMotivos.esErrorNoAtrapado = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoTablaInexistente() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. El nombre de la tabla no existe en la base de datos")
+	err.errorMotivos.esTablaInexistente = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoCampoInexistente() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. Hay al menos un nombre de campo que no existe en la tabla")
+	err.errorMotivos.esCampoDeTablaInexistente = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoEntradaDuplicada() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible guardar los datos. Ya existe un campo que contiene el mismo valor que se ha recibido (entrada duplicada)")
+	err.errorMotivos.esEntradaDuplicada = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoTipoDeCampoIncorrecto() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible guardar los datos. Existe al menos un campo de la tabla que está recibiendo un tipo de valor incorrecto")
+	err.errorMotivos.esTipoDeCampoIncorrecto = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoCampoFueraDeRango() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. Existe al menos un valor recibido que supera el límite permitido por el campo de la tabla")
+	err.errorMotivos.esCampoFueraDeRango = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoObtencionDeRegistrosAfectados() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. Se produjo un error al obtener la cantidad de registros afectados")
+	err.errorMotivos.esObtencionDeRegistrosAfectados = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoNingunRegistroAfectado() *errorPaquete {
+	err.mensajes = append(err.mensajes, "La sentencia se ejecutó satisfactoriamente pero ningún registro de la tabla fue afectado. Los posibles motivos son: Elemento inexistente o no se ha cambiado ningún valor del registro")
+	err.errorMotivos.esNingunRegistroAfectado = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoObtencionDeID() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. Se produjo un error al obtener el identificador insertado")
+	err.errorMotivos.esObtencionDeID = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoSeleccionarPunteroDeSlice() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. El objeto recibido no es un puntero de slice de estructura")
+	err.errorMotivos.esSeleccionarPunteroDeSlice = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoSeleccionarCamposSinRelacion() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. Los campos de la estructura del objeto recibido no tienen asignados la relación de nombres con los campos de la tabla de la base de datos")
+	err.errorMotivos.esSeleccionarCamposSinRelacion = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoSeleccionarContieneEstrucutura() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. El objeto recibido contiene al menos una estructura")
+	err.errorMotivos.esSeleccionarContieneEstructura = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoSeleccionarTipoDeCampoIncorrecto() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. Existe al menos un campo de la estructura que contiene un tipo erroneo (no se permiten punteros)")
+	err.errorMotivos.esSeleccionarTipoDeCampoIncorrecto = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoSeleccionarCamposFaltantes(camposFaltantes string) *errorPaquete {
+	err.mensajes = append(err.mensajes, fmt.Sprintf("No es posible ejecutar la sentencia SQL. Los campos obtenidos de la consulta no existen en su totalidad dentro de la estructura. Los campos faltantes son: %v", camposFaltantes))
+	err.errorMotivos.esSeleccionarCamposFaltantes = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoSeleccionarLecturaDeCampos() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. Se produjo un error al leer los campos de la consulta")
+	err.errorMotivos.esSeleccionarLecturaDeCampos = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoSeleccionarAsignacionDeCampos(mensaje string) *errorPaquete {
+	err.mensajes = append(err.mensajes, fmt.Sprintf("No es posible ejecutar la sentencia SQL. Se produjo un error al asignar los campos de la consulta a los campos de la estructura. %v", mensaje))
+	err.errorMotivos.esSeleccionarAsignacionDeCampos = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoTxIniciar() *errorPaquete {
+	err.mensajes = append(err.mensajes, "Error al intentar iniciar una transacción")
+	err.errorMotivos.esTxIniciar = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoTxConfirmar() *errorPaquete {
+	err.mensajes = append(err.mensajes, "Error al intentar confirmar la transacción")
+	err.errorMotivos.esTxConfirmar = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoTxRevertir() *errorPaquete {
+	err.mensajes = append(err.mensajes, "Error al intentar revertir la transacción")
+	err.errorMotivos.esTxRevertir = true
+	return err
+}
+
+// -----------------------------------------------------------------------------
+
 func errorNuevo() *errorPaquete {
 	return &errorPaquete{}
 }
 
-// EsError devuelve el error del paquete y un valor lógico que confirma el tipo.
-// La única manera de obtener el error del paquete es a traves de esta función.
-func EsError(err error) (*errorPaquete, bool) {
-	ep, ok := err.(*errorPaquete)
-	return ep, ok
+func resolverErrorMysql(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	errMysql, ok := err.(*mysql.MySQLError)
+	if !ok {
+		return errorNuevo().asignarOrigen(err).asignarMotivoErrorNoAtrapado()
+	}
+
+	switch errMysql.Number {
+	case 1146:
+		// Nombre de tabla inexistente.
+		return errorNuevo().asignarOrigen(errMysql).asignarMotivoTablaInexistente()
+	case 1054:
+		// Nombre de campo de la tabla inexistente.
+		return errorNuevo().asignarOrigen(errMysql).asignarMotivoCampoInexistente()
+	case 1062:
+		// Entrada duplicada.
+		return errorNuevo().asignarOrigen(errMysql).asignarMotivoEntradaDuplicada()
+	case 1264:
+		// Campo fuera de rango (se quiere guardar un valor superior a la capacidad del campo).
+		return errorNuevo().asignarOrigen(errMysql).asignarMotivoCampoFueraDeRango()
+	case 1366:
+		// Tipo de campo incorrecto.
+		return errorNuevo().asignarOrigen(errMysql).asignarMotivoTipoDeCampoIncorrecto()
+	}
+
+	return err
 }

@@ -1,0 +1,4 @@
+github.com/fabianpallares/bdsql v0.1.0 h1:Y+sidudSjs1zjZ0RSbNtuIA/x+OdnurBDvwwOrwRJ+0=
+github.com/fabianpallares/bdsql v0.1.0/go.mod h1:cd0P01yX/J0FVfX2txcpT/wU06Q3hSW7YkINWvjdEwI=
+github.com/go-sql-driver/mysql v1.5.0 h1:ozyZYNQW3x3HtqT1jira07DN2PArx2v7/mN66gGcHOs=
+github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
