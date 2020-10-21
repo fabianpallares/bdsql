@@ -26,9 +26,13 @@ type errorPaquete struct {
 		esConexionAbrir  bool // no es posible conectase con el motor de la base de datos
 		esConexionCerrar bool // no es posible cerrar la conexión con la base de datos
 
-		// genéricos de validación del paquete
-		esNombreDeTablaVacia             bool // el nombre de la tabla se encuentra vacía
-		esNombresDeCamposVacios          bool // los nombres de los campos se encuentran vacíos
+		// genéricos de validación del paquete (GENERAR SQL)
+		esNombreDeTablaVacia    bool // el nombre de la tabla se encuentra vacía
+		esNombresDeCamposVacios bool // los nombres de los campos se encuentran vacíos
+		esCondicionVacia        bool // no se ha recibido la condición para ejecutar la sentencia. Se aplica a 'update' y 'delete'
+		esValoresCondicionVacia bool // no se han recibido los valores de la condición para ejecutar la sentencia. Se aplica a 'update' y 'delete'
+
+		// genéricos de validación del paquete (EJECUCION SQL)
 		esValoresVacios                  bool // no se han recibido valores para poder ejecutar la sentencia
 		esCamposValoresDiferenteCantidad bool // la cantidad de campos no coincide con la cantidad de valores recibidos
 
@@ -40,6 +44,7 @@ type errorPaquete struct {
 		esCampoDeTablaInexistente       bool // no es posible ejecutar la sentencia porque el nombre de campo es inexistente
 		esEntradaDuplicada              bool // la tabla contiene un un campo con clave única y el valor recibido ya existe
 		esTipoDeCampoIncorrecto         bool // se intenta guardar un valor en un campo de una tabla donde el tipo de valor es incorrecto
+		esTipoDeCampoJSONIncorrecto     bool // se intenta guardar un valor en un campo JSON de una tabla donde el tipo de valor es incorrecto
 		esCampoFueraDeRango             bool // no es posible ejecutar la sentencia porque hay al menos un valor que se desea guardar que supera el límite permitido po el campo
 		esObtencionDeRegistrosAfectados bool // error al obtener la cantidad de registros afectados
 		esNingunRegistroAfectado        bool // elemento inexistente o existen otros elementos con los mismos valores o no se ha cambiado ningún valor del elemento
@@ -55,6 +60,9 @@ type errorPaquete struct {
 		esSeleccionarCamposFaltantes       bool // Los campos obtenidos de la consulta, no existen en su totalidad en la estructura
 		esSeleccionarLecturaDeCampos       bool // No es posible leer los campos de la consulta
 		esSeleccionarAsignacionDeCampos    bool // No es posible asignar los campos de la consulta de la base de datos a los campos de la estructura
+
+		// sentencia preparada
+		esSentenciaPreparadaCrear bool // No es posible crear la sentencia preparada
 
 		// transacción
 		esTxIniciar   bool // error al intentar iniciar una transacción
@@ -86,12 +94,19 @@ func (err *errorPaquete) EsValoresVacios() bool { return err.errorMotivos.esValo
 func (err *errorPaquete) EsCamposValoresDiferenteCantidad() bool {
 	return err.errorMotivos.esCamposValoresDiferenteCantidad
 }
+func (err *errorPaquete) EsCondicionVacia() bool { return err.errorMotivos.esCondicionVacia }
+func (err *errorPaquete) EsValoresCondicionVacia() bool {
+	return err.errorMotivos.esValoresCondicionVacia
+}
 func (err *errorPaquete) EsTablaInexistente() bool { return err.errorMotivos.esTablaInexistente }
 func (err *errorPaquete) EsCampoDeTablaInexistente() bool {
 	return err.errorMotivos.esCampoDeTablaInexistente
 }
 func (err *errorPaquete) EsTipoDeCampoIncorrecto() bool {
 	return err.errorMotivos.esTipoDeCampoIncorrecto
+}
+func (err *errorPaquete) EsTipoDeCampoJSONIncorrecto() bool {
+	return err.errorMotivos.esTipoDeCampoJSONIncorrecto
 }
 func (err *errorPaquete) EsObtencionDeRegistrosAfectados() bool {
 	return err.errorMotivos.esObtencionDeRegistrosAfectados
@@ -122,6 +137,9 @@ func (err *errorPaquete) EsSeleccionarLecturaDeCampos() bool {
 func (err *errorPaquete) EsSeleccionarAsignacionDeCampos() bool {
 	return err.errorMotivos.esSeleccionarAsignacionDeCampos
 }
+func (err *errorPaquete) EsSentenciaPreparadaCrear() bool {
+	return err.errorMotivos.esSentenciaPreparadaCrear
+}
 func (err *errorPaquete) EsTxIniciar() bool {
 	return err.errorMotivos.esTxIniciar
 }
@@ -150,21 +168,31 @@ func (err *errorPaquete) asignarMotivoConexionCerrar() *errorPaquete {
 	return err
 }
 func (err *errorPaquete) asignarMotivoNombreDeTablaVacia() *errorPaquete {
-	err.mensajes = append(err.mensajes, "No es posible generar la sentencia porque el nombre de la tabla se encuentra vacía")
+	err.mensajes = append(err.mensajes, "No es posible generar la sentencia SQL. El nombre de la tabla se encuentra vacía")
 	err.errorMotivos.esNombreDeTablaVacia = true
 	return err
 }
 func (err *errorPaquete) asignarMotivoNombresDeCamposVacios() *errorPaquete {
-	err.mensajes = append(err.mensajes, "No es posible generar la sentencia porque la lista de nombres de campos se encuentra vacía")
+	err.mensajes = append(err.mensajes, "No es posible generar la sentencia SQL. La lista de nombres de campos se encuentra vacía")
 	err.errorMotivos.esNombresDeCamposVacios = true
 	return err
 }
+func (err *errorPaquete) asignarMotivoCondicionVacia() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible generar la sentencia SQL. No se permite que la condición (cláusula where) se encuentra vacía")
+	err.errorMotivos.esCondicionVacia = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoValoresCondicionVacia() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible generar la sentencia SQL. No se han recibido los valores de la condición")
+	err.errorMotivos.esValoresCondicionVacia = true
+	return err
+}
 func (err *errorPaquete) asignarMotivoValoresVacios() *errorPaquete {
-	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia porque la lista de valores de los campos se encuentra vacía")
+	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. La lista de valores de los campos no han sido asignados")
 	err.errorMotivos.esValoresVacios = true
 	return err
 }
-func (err *errorPaquete) asignarMotivoCamposValores() *errorPaquete {
+func (err *errorPaquete) asignarMotivoCamposValoresDiferenteCantidad() *errorPaquete {
 	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. La cantidad de nombres de campos no coincide con la cantidad de valores recibidos")
 	err.errorMotivos.esCamposValoresDiferenteCantidad = true
 	return err
@@ -192,6 +220,11 @@ func (err *errorPaquete) asignarMotivoEntradaDuplicada() *errorPaquete {
 func (err *errorPaquete) asignarMotivoTipoDeCampoIncorrecto() *errorPaquete {
 	err.mensajes = append(err.mensajes, "No es posible guardar los datos. Existe al menos un campo de la tabla que está recibiendo un tipo de valor incorrecto")
 	err.errorMotivos.esTipoDeCampoIncorrecto = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoTipoDeCampoJSONIncorrecto() *errorPaquete {
+	err.mensajes = append(err.mensajes, "No es posible guardar los datos. Existe al menos un campo JSON de la tabla que está recibiendo un tipo de valor incorrecto")
+	err.errorMotivos.esTipoDeCampoJSONIncorrecto = true
 	return err
 }
 func (err *errorPaquete) asignarMotivoCampoFueraDeRango() *errorPaquete {
@@ -224,7 +257,7 @@ func (err *errorPaquete) asignarMotivoSeleccionarCamposSinRelacion() *errorPaque
 	err.errorMotivos.esSeleccionarCamposSinRelacion = true
 	return err
 }
-func (err *errorPaquete) asignarMotivoSeleccionarContieneEstrucutura() *errorPaquete {
+func (err *errorPaquete) asignarMotivoSeleccionarContieneEstructura() *errorPaquete {
 	err.mensajes = append(err.mensajes, "No es posible ejecutar la sentencia SQL. El objeto recibido contiene al menos una estructura")
 	err.errorMotivos.esSeleccionarContieneEstructura = true
 	return err
@@ -247,6 +280,11 @@ func (err *errorPaquete) asignarMotivoSeleccionarLecturaDeCampos() *errorPaquete
 func (err *errorPaquete) asignarMotivoSeleccionarAsignacionDeCampos(mensaje string) *errorPaquete {
 	err.mensajes = append(err.mensajes, fmt.Sprintf("No es posible ejecutar la sentencia SQL. Se produjo un error al asignar los campos de la consulta a los campos de la estructura. %v", mensaje))
 	err.errorMotivos.esSeleccionarAsignacionDeCampos = true
+	return err
+}
+func (err *errorPaquete) asignarMotivoSentenciaPreparadaCrear() *errorPaquete {
+	err.mensajes = append(err.mensajes, "Error al crear la sentencia preparada")
+	err.errorMotivos.esSentenciaPreparadaCrear = true
 	return err
 }
 func (err *errorPaquete) asignarMotivoTxIniciar() *errorPaquete {
@@ -297,7 +335,11 @@ func resolverErrorMysql(err error) error {
 	case 1366:
 		// Tipo de campo incorrecto.
 		return errorNuevo().asignarOrigen(errMysql).asignarMotivoTipoDeCampoIncorrecto()
+	case 3140:
+		// Tipo de campo incorrecto (JSON inválido).
+		return errorNuevo().asignarOrigen(errMysql).asignarMotivoTipoDeCampoJSONIncorrecto()
+	default:
+		// No atrapado.
+		return errorNuevo().asignarOrigen(errMysql).asignarMotivoErrorNoAtrapado()
 	}
-
-	return err
 }
