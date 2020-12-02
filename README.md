@@ -1,4 +1,4 @@
-# bdsql: Manejador de bases de datos SQL para Go/Golang (Mysql y Mariadb)
+# bdsql: Manejador de bases de datos SQL (Mysql y Mariadb) para Go/Golang
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/fabianpallares/bdsql)](https://goreportcard.com/report/github.com/fabianpallares/bdsql) [![GoDoc](https://godoc.org/github.com/fabianpallares/bdsql?status.svg)](https://godoc.org/github.com/fabianpallares/bdsql)
 
@@ -104,6 +104,16 @@ if err != nil {
 
 ```
 
+## Nombrar la sentencia a ejecutar:
+Todas las sentencias deben tener un "nombre de sentencia". debe ser único. El fin de esto es que el paquete almacena la instrucción generada. De esta manera no tiene que volver a traducir/generar la sentencia SQL nativa cada vez que se invoque esta acción.
+**Es sumamente importante que el nombre sea único por cada instrucción.**
+Si por alguna razón, no desea utilizar esta funcionalidad y hacer que el paquete genere en todo momento la instrucción nativa SQL, se debe pasar como parámetro de nombre: "-".
+Ejemplo: 
+```GO
+sql, err := bd.
+	Insertar("-")...
+```
+
 ## Obteniendo la sentencia SQL generada:
 Para conocer la sentencia SQL que genera el paquete **bdsql**, se utilizará el método SQL() de cada sentencia:
 
@@ -193,7 +203,7 @@ cant, filas, err := bd.
 	Campos("p.apellidos", "p.nombres", "t.telefono").
 	JuntarCon("telefonos t", "t.persona_id = p.id").
 	Condicion("t.zona = ? and t.activo = ?", "centro", true).
-	OrdenarPor("apllidos asc", "telefono desc").
+	OrdenarPor("apellidos asc", "telefono desc").
 	Limitar(100).
 	Saltar(100).
 	Recibir(<objeto>).

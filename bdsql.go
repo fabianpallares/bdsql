@@ -38,32 +38,44 @@ type BD struct {
 
 // Insertar representa la sentencia 'insert' de SQL.
 func (bd *BD) Insertar(nombre string) *insertar {
-	var o = &insertar{bd: bd, senSQLNombre: nombre}
-	o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	var o = &insertar{bd: bd}
+	if nombre != "-" {
+		o.senSQLNombre = nombre
+		o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	}
 
 	return o
 }
 
 // Modificar representa la sentencia 'update' de SQL.
 func (bd *BD) Modificar(nombre string) *modificar {
-	var o = &modificar{bd: bd, senSQLNombre: nombre}
-	o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	var o = &modificar{bd: bd}
+	if nombre != "-" {
+		o.senSQLNombre = nombre
+		o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	}
 
 	return o
 }
 
 // Eliminar representa la sentencia 'delete' de SQL.
 func (bd *BD) Eliminar(nombre string) *eliminar {
-	var o = &eliminar{bd: bd, senSQLNombre: nombre}
-	o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	var o = &eliminar{bd: bd}
+	if nombre != "-" {
+		o.senSQLNombre = nombre
+		o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	}
 
 	return o
 }
 
 // Seleccionar representa la sentencia 'select' de SQL.
 func (bd *BD) Seleccionar(nombre string) *seleccionar {
-	var o = &seleccionar{bd: bd, senSQLNombre: nombre}
-	o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	var o = &seleccionar{bd: bd}
+	if nombre != "-" {
+		o.senSQLNombre = nombre
+		o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	}
 
 	return o
 }
@@ -100,32 +112,44 @@ type TX struct {
 
 // Insertar representa la sentencia 'insert' de SQL.
 func (tx *TX) Insertar(nombre string) *insertar {
-	var o = &insertar{bd: tx.bd, tx: tx.tx, senSQLNombre: nombre}
-	o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	var o = &insertar{bd: tx.bd, tx: tx.tx}
+	if nombre != "-" {
+		o.senSQLNombre = nombre
+		o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	}
 
 	return o
 }
 
 // Modificar representa la sentencia 'update' de SQL.
 func (tx *TX) Modificar(nombre string) *modificar {
-	var o = &modificar{bd: tx.bd, tx: tx.tx, senSQLNombre: nombre}
-	o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	var o = &modificar{bd: tx.bd, tx: tx.tx}
+	if nombre != "-" {
+		o.senSQLNombre = nombre
+		o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	}
 
 	return o
 }
 
 // Eliminar representa la sentencia 'delete' de SQL.
 func (tx *TX) Eliminar(nombre string) *eliminar {
-	var o = &eliminar{bd: tx.bd, tx: tx.tx, senSQLNombre: nombre}
-	o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	var o = &eliminar{bd: tx.bd, tx: tx.tx}
+	if nombre != "-" {
+		o.senSQLNombre = nombre
+		o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	}
 
 	return o
 }
 
 // Seleccionar representa la sentencia 'select' de SQL.
 func (tx *TX) Seleccionar(nombre string) *seleccionar {
-	var o = &seleccionar{bd: tx.bd, tx: tx.tx, senSQLNombre: nombre}
-	o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	var o = &seleccionar{bd: tx.bd, tx: tx.tx}
+	if nombre != "-" {
+		o.senSQLNombre = nombre
+		o.senSQL, o.senSQLExiste = o.bd.obtenerSentenciaSQL(nombre)
+	}
 
 	return o
 }
